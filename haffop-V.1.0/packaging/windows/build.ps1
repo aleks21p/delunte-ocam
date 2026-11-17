@@ -14,11 +14,13 @@ python -m venv .venv-build
 
 # Render the SVG logo to a multi-size .ico with Qt (no extra dependencies)
 & .\.venv-build\Scripts\python.exe packaging\windows\make_icon.py haffop\resources\haffop.svg build\haffop.ico
+& .\.venv-build\Scripts\python.exe packaging\windows\make_version.py build\version.txt
 
 & .\.venv-build\Scripts\pyinstaller.exe --noconfirm --clean --onefile --windowed --noupx `
     --name Haffop `
     --uac-admin `
     --icon build\haffop.ico `
+    --version-file build\version.txt `
     --paths . `
     --add-data "haffop\resources;resources" `
     --collect-submodules haffop `

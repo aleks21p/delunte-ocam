@@ -25,6 +25,7 @@ class Job(QThread):
 
 class SensorPoller(QThread):
     readings = pyqtSignal(list)
+    failed = pyqtSignal(str)
 
     def __init__(self, backend, interval_ms: int, parent=None) -> None:
         super().__init__(parent)
@@ -36,13 +37,14 @@ class SensorPoller(QThread):
         while not self._stop:
             try:
                 self.readings.emit(self._backend.read_sensors())
-            except Exception:
-                pass
+            except Exception as exc:
+                self.readings.emit([])
+                self.failed.emit(f"Sensor polling failed: {exc}")
             for _ in range(self._interval // 100):
                 if self._stop:
                     return
                 self.msleep(100)
 
-    def stop(self) -> None:
+    def stop(self, timeout_ms: int = 5000) -> bool:
         self._stop = True
-        self.wait(5000)
+        return self.wait(timeout_ms)

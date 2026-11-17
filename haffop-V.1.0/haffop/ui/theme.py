@@ -1,11 +1,11 @@
-"""Dark theme inspired by Polychromatic (dark greys with a green accent)."""
+"""Quiet dark surfaces and a consistent green accent."""
 
 ACCENT = "#3ddc84"
 ACCENT_DARK = "#2a9d5f"
-BG = "#1e1f22"
-BG_ALT = "#26282c"
-CARD = "#2c2e33"
-BORDER = "#3a3d43"
+BG = "#15191e"
+BG_ALT = "#1b2128"
+CARD = "#222a33"
+BORDER = "#34404d"
 TEXT = "#e8e8e8"
 MUTED = "#9aa0a6"
 WARN = "#f1c40f"
@@ -21,7 +21,7 @@ QLabel#Muted, QLabel.muted {{ color: {MUTED}; background: transparent; }}
 QLabel {{ background: transparent; }}
 QTabWidget::pane {{ border: none; }}
 QTabBar {{ background: {BG_ALT}; }}
-QTabBar::tab {{ background: transparent; color: {MUTED}; padding: 10px 26px; font-size: 11pt; font-weight: 600;
+QTabBar::tab {{ background: transparent; color: {MUTED}; padding: 13px 20px; font-size: 10pt; font-weight: 600;
                border-bottom: 3px solid transparent; }}
 QTabBar::tab:selected {{ color: {TEXT}; border-bottom: 3px solid {ACCENT}; }}
 QTabBar::tab:hover {{ color: {TEXT}; }}
@@ -60,7 +60,7 @@ QScrollArea {{ border: none; }}
 QScrollBar:vertical {{ background: {BG}; width: 10px; }}
 QScrollBar::handle:vertical {{ background: {BORDER}; border-radius: 5px; min-height: 30px; }}
 QScrollBar::add-line, QScrollBar::sub-line {{ height: 0; }}
-QProgressBar {{ background: {BORDER}; border: none; border-radius: 4px; height: 8px; text-align: center; color: transparent; }}
+QProgressBar {{ background: {BORDER}; border: none; border-radius: 4px; height: 10px; text-align: center; color: transparent; }}
 QProgressBar::chunk {{ background: {ACCENT}; border-radius: 4px; }}
 QPlainTextEdit {{ background: {BG_ALT}; border: 1px solid {BORDER}; border-radius: 6px; font-family: monospace; font-size: 9pt; }}
 QStatusBar {{ background: {BG_ALT}; color: {MUTED}; }}

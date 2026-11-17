@@ -6,6 +6,9 @@ import sys
 
 
 def main() -> int:
+    if sys.argv[1:2] == ["--haffop-test-worker"]:
+        from haffop.diagnostics import worker_main
+        return worker_main(sys.argv[2:])
     # Bundled (PyInstaller) builds have no separate Python, so the binary doubles as its own pkexec helper.
     if sys.argv[1:2] == ["--haffop-helper"]:
         from haffop.tuning import helper

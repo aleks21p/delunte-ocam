@@ -104,6 +104,18 @@ class SimpleView(QScrollArea):
 
     def update_sensors(self, readings: list[SensorReading]) -> None:
         by_key = {r.key: r for r in readings if r.key}
+        for key, st in self.stats.items():
+            if key == "cpu" or key == "ram" or key.startswith(("gpu:", "wifi:")):
+                st.set_temp("temp", None, "Temperature")
+        for d in self.snap.disks:
+            self.stats["storage"].set_temp(f"diskt:{d.key}", None, "   temperature")
+        for key in ("clock", "load"):
+            self.stats["cpu"].set(key, "n/a")
+        self.cpu_load.setValue(0)
+        self.stats["ram"].set("used", "n/a")
+        for g in self.snap.gpus:
+            self.stats[f"gpu:{g.key}"].set("clock", "n/a")
+        self.temp_stats.clear_values()
         if (r := by_key.get("cpu")):
             self.stats["cpu"].set_temp("temp", r.value, "Temperature")
         if (r := by_key.get("cpu_clock")):
@@ -115,15 +127,12 @@ class SimpleView(QScrollArea):
             self.stats["ram"].set("used", f"{r.value:.0f} %", "In use")
         if (r := by_key.get("ram")):
             self.stats["ram"].set_temp("temp", r.value, "Temperature")
-        cpu_temp = by_key.get("cpu")
         for g in self.snap.gpus:
             st = self.stats.get(f"gpu:{g.key}")
             if not st:
                 continue
             if (r := by_key.get(f"gpu:{g.key}")):
                 st.set_temp("temp", r.value, "Temperature")
-            elif g.integrated and cpu_temp:
-                st.set("temp", f"{cpu_temp.value:.0f} °C (shares CPU die)", "Temperature", temp_color(cpu_temp.value))
             if (r := by_key.get(f"gpu_clock:{g.key}")):
                 st.set("clock", _mhz(r.value), "Clock")
         for d in self.snap.disks:
@@ -182,6 +191,9 @@ class ExpandedView(QWidget):
         self.tree.expandAll()
 
     def update_sensors(self, readings: list[SensorReading]) -> None:
+        for item in self._sensor_items.values():
+            item.setText(1, "n/a (not reported)")
+            item.setForeground(1, QColor(MUTED))
         for r in readings:
             grp = self._groups.get(r.group)
             if grp is None:

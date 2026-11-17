@@ -83,6 +83,10 @@ class StatGrid(QWidget):
     def set_temp(self, key: str, value: float | None, label: str | None = None) -> None:
         self.set(key, f"{value:.0f} °C" if value is not None else "n/a", label, temp_color(value) if value is not None else MUTED)
 
+    def clear_values(self) -> None:
+        for key in self._values:
+            self.set(key, "n/a (not reported)")
+
 
 class ControlEditor(QWidget):
     """Editor for one tuning Control (slider + spin box, combo box or switch)."""

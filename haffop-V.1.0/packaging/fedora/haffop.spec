@@ -19,6 +19,8 @@ Requires:       polkit
 Recommends:     lm_sensors
 Recommends:     dmidecode
 Suggests:       python3-pynvml
+Suggests:       iperf3
+Suggests:       ocl-icd
 
 %description
 Haffop detects your hardware (CPU, RAM, GPU, storage, Wi-Fi, displays, USB,
@@ -46,5 +48,9 @@ sh packaging/common/stage-linux.sh . %{buildroot}
 %{_datadir}/icons/hicolor/scalable/apps/haffop.svg
 
 %changelog
+* Tue Nov 17 2026 Haffop developers <haffop@users.noreply.github.com> - 1.1.0-1
+- Health overview, component benchmarks, stress testing and offline references
+- Correct CPU temperature selection and remove estimated device temperatures
+
 * Tue Nov 17 2026 Haffop developers <haffop@users.noreply.github.com> - 1.0.0-1
 - Initial release

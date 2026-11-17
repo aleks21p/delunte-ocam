@@ -12,6 +12,7 @@ from haffop.hardware.model import (CPUInfo, DiskInfo, GPUInfo, HardwareSnapshot,
                                    SensorReading, WifiInfo)
 from haffop.hardware.parsers import (CHASSIS_LAPTOP, CHASSIS_NAMES, DDR_TYPES,
                                      max_wifi_standard_from_radio_types, parse_key_value_blocks)
+from haffop.hardware.sensors import select_cpu_temperature, valid_temperature
 from haffop.util import human_bytes, run
 
 POWERSHELL = ["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command"]
@@ -107,9 +108,9 @@ class WindowsHardware:
                 step(snap, d)
             except Exception as exc:
                 snap.warnings.append(f"{step.__name__.strip('_')}: {exc}")
-        snap.warnings.append("Windows only exposes CPU/board temperatures to administrators or through "
-                             "LibreHardwareMonitor. Run Haffop as administrator, or start LibreHardwareMonitor "
-                             "for full sensor coverage.")
+        snap.warnings.append("Accurate CPU/board temperatures usually require LibreHardwareMonitor or "
+                             "OpenHardwareMonitor with its WMI provider running (often elevated). "
+                             "Administrator rights alone do not expose CPU die sensors. ACPI zones are not CPU readings.")
         self.snapshot = snap
         return snap
 
@@ -316,26 +317,36 @@ class WindowsHardware:
         d = ps_json(_SENSORS_PS, timeout=20)
         lhm = _lst(d.get("lhm"))
         hw_types = {h.get("Identifier"): (h.get("HardwareType") or "", h.get("Name") or "") for h in _lst(d.get("lhmhw"))}
-        cpu_set = False
+        if not d:
+            raise RuntimeError("Windows sensor query failed. Check PowerShell/CIM access.")
+        cpu_candidates = []
         for s in lhm:
-            typ, hw_name = hw_types.get(s.get("Parent"), ("", ""))
-            unit = {"Temperature": "°C", "Clock": "MHz", "Fan": "RPM", "Power": "W"}[s["SensorType"]]
+            parent = s.get("Parent") or ""
+            matches = [ident for ident in hw_types if ident and (parent == ident or parent.startswith(ident + "/"))]
+            typ, hw_name = hw_types[max(matches, key=len)] if matches else ("", "")
+            unit = {"Temperature": "°C", "Clock": "MHz", "Fan": "RPM", "Power": "W"}.get(s.get("SensorType"))
+            value = s.get("Value")
+            if unit is None or not isinstance(value, (int, float)):
+                continue
+            if unit == "°C" and not valid_temperature(value):
+                continue
             key = None
-            if s["SensorType"] == "Temperature" and typ.lower() == "cpu" and not cpu_set and re.search(r"Package|Tctl|Tdie|Core \(Tctl", s.get("Name", "")):
-                key, cpu_set = "cpu", True
-            elif s["SensorType"] == "Temperature" and typ.lower().startswith("gpu") and s.get("Name") == "GPU Core":
-                g = next((g for g in (self.snapshot.gpus if self.snapshot else []) if g.name in hw_name or hw_name in g.name), None)
-                key = f"gpu:{g.key}" if g else None
+            if s["SensorType"] == "Temperature" and typ.lower().startswith("gpu") and s.get("Name") == "GPU Core":
+                matches = [g for g in (self.snapshot.gpus if self.snapshot else [])
+                           if hw_name and (g.name in hw_name or hw_name in g.name)]
+                key = f"gpu:{matches[0].key}" if len(matches) == 1 else None
             elif s["SensorType"] == "Power" and typ.lower() == "cpu" and s.get("Name") == "CPU Package":
                 key = "cpu_power"
-            out.append(SensorReading(hw_name or typ, s.get("Name", ""), float(s.get("Value") or 0), unit, key))
+            reading = SensorReading(hw_name or typ, s.get("Name", ""), float(value), unit, key)
+            out.append(reading)
+            if unit == "°C" and typ.lower() == "cpu":
+                cpu_candidates.append(reading)
+        select_cpu_temperature(cpu_candidates)
         for z in _lst(d.get("zones")):
             if z.get("CurrentTemperature"):
                 c = z["CurrentTemperature"] / 10 - 273.15
                 if 0 < c < 150:
-                    out.append(SensorReading("ACPI thermal zone", str(z.get("InstanceName", "")).split("\\")[-1], c, "°C",
-                                             None if cpu_set else "cpu"))
-                    cpu_set = True
+                    out.append(SensorReading("ACPI thermal zone", str(z.get("InstanceName", "")).split("\\")[-1], c, "°C"))
         for disk in _lst(d.get("disks")):
             if disk.get("Temperature"):
                 key = str(disk.get("DeviceId"))
@@ -354,4 +365,4 @@ class WindowsHardware:
                                       ("fan.speed", "Fan", "%", None)):
                 if row.get(fld) is not None:
                     out.append(SensorReading(grp, lbl, row[fld], unit, k if key else None))
-        return out
+        return [r for r in out if r.unit != "°C" or valid_temperature(r.value)]
