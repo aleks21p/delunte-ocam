@@ -1,10 +1,10 @@
-"""Main window: header, Tuning tab (main) and Hardware tab."""
+"""Shared health, hardware, benchmarking and tuning workspace."""
 
 from __future__ import annotations
 
 import sys
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QMainWindow, QMessageBox, QPushButton, QTabWidget,
                              QVBoxLayout, QWidget)
@@ -14,6 +14,8 @@ from haffop.hardware import get_backend as hardware_backend
 from haffop.platform_info import WINDOWS, PlatformInfo
 from haffop.tuning import get_backend as tuning_backend
 from haffop.ui.hardware_tab import HardwareTab
+from haffop.ui.health_tab import HealthTab
+from haffop.ui.benchmarks_tab import BenchmarksTab, ReferencesTab
 from haffop.ui.theme import ACCENT, WARN
 from haffop.ui.tuning_tab import TuningTab
 from haffop.ui.widgets import muted
@@ -29,6 +31,8 @@ class MainWindow(QMainWindow):
         self.setWindowIcon(QIcon(str(resource_path("resources", "haffop.svg"))))
         self.resize(1200, 820)
         self.poller: SensorPoller | None = None
+        self._closing = False
+        self._last_sensor_update = 0.0
 
         root = QWidget()
         lay = QVBoxLayout(root)
@@ -62,7 +66,7 @@ class MainWindow(QMainWindow):
         title = QLabel(APP_NAME)
         title.setObjectName("AppTitle")
         h.addWidget(title)
-        h.addWidget(muted(f"  hardware viewer & performance unlocker  ·  {self.plat.pretty_name}"), 1)
+        h.addWidget(muted(f"  {__version__}  ·  health & performance  ·  {self.plat.pretty_name}"), 1)
         self.system_label = muted("")
         h.addWidget(self.system_label)
         if self.plat.edition == WINDOWS and not is_admin():
@@ -95,13 +99,42 @@ class MainWindow(QMainWindow):
         self.system_label.setWordWrap(False)
         self.tuning = TuningTab(snap, tuner, comps)
         self.hardware = HardwareTab(snap)
-        self.tabs.addTab(self.tuning, "Tuning")
+        self.health = HealthTab(snap)
+        self.benchmarks = BenchmarksTab(snap)
+        self.testing = BenchmarksTab(snap, testing=True)
+        self.tabs.addTab(self.health, "Health")
         self.tabs.addTab(self.hardware, "Hardware")
+        self.tabs.addTab(self.benchmarks, "Benchmarks")
+        self.tabs.addTab(self.testing, "Testing")
+        self.tabs.addTab(ReferencesTab(), "Offline references")
+        self.tabs.addTab(self.tuning, "Tuning")
+        for page, other in ((self.benchmarks, self.testing), (self.testing, self.benchmarks)):
+            page.busy_changed.connect(other.setDisabled)
+            page.busy_changed.connect(self.tuning.setDisabled)
+            page.start_check = lambda: self.tuning._job is None or not self.tuning._job.isRunning()
         self.tabs.show()
         self.poller = SensorPoller(self.hw, 3000 if self.plat.edition == WINDOWS else 2000, self)
-        self.poller.readings.connect(self.tuning.update_sensors)
-        self.poller.readings.connect(self.hardware.update_sensors)
+        self.poller.readings.connect(self._sensors)
+        self.poller.failed.connect(lambda message: self.statusBar().showMessage(message))
         self.poller.start()
+        self._stale_timer = QTimer(self)
+        self._stale_timer.setInterval(1000)
+        self._stale_timer.timeout.connect(self._expire_sensors)
+        self._stale_timer.start()
+
+    def _sensors(self, readings) -> None:
+        import time
+        self._last_sensor_update = time.monotonic() if readings else 0
+        for page in (self.health, self.tuning, self.hardware, self.benchmarks, self.testing):
+            page.update_sensors(readings)
+        if readings:
+            self.statusBar().showMessage(f"{self.plat.pretty_name}  ·  Live telemetry updated")
+
+    def _expire_sensors(self) -> None:
+        import time
+        if self._last_sensor_update and time.monotonic() - self._last_sensor_update > 25:
+            self._sensors([])
+            self.statusBar().showMessage("Telemetry stale: readings cleared. Check sensor access.")
 
     def _detect_failed(self, tb: str) -> None:
         self.loading.setText("Hardware detection failed.")
@@ -117,6 +150,39 @@ class MainWindow(QMainWindow):
             self.close()
 
     def closeEvent(self, event) -> None:
+        for name in ("benchmarks", "testing"):
+            page = getattr(self, name, None)
+            if page and page.is_running():
+                event.ignore()
+                if self._closing:
+                    QTimer.singleShot(200, self.close)
+                    return
+                if QMessageBox.question(self, "Stop diagnostics?",
+                                        "Stop the active workload and close after cleanup?",
+                                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                                        QMessageBox.StandardButton.No) == QMessageBox.StandardButton.Yes:
+                    self._closing = True
+                    page.cancel()
+                    QTimer.singleShot(200, self.close)
+                return
+        self._closing = True
+        self.tabs.setEnabled(False)
+        if hasattr(self, "health"):
+            self.health.timer.stop()
+        jobs = [self._job]
+        if hasattr(self, "health") and self.health._job:
+            jobs.append(self.health._job)
+        if hasattr(self, "tuning") and self.tuning._job:
+            jobs.append(self.tuning._job)
+        for job in jobs:
+            if job.isRunning():
+                event.ignore()
+                QTimer.singleShot(200, self.close)
+                self.statusBar().showMessage("Waiting for the current hardware operation before closing...")
+                return
         if self.poller:
-            self.poller.stop()
+            if not self.poller.stop(0):
+                event.ignore()
+                QTimer.singleShot(200, self.close)
+                return
         super().closeEvent(event)

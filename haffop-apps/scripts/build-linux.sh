@@ -7,7 +7,7 @@ DISTRO=$1
 SRC=/src
 OUT=/out
 VERSION=$(sed -n 's/^__version__ = "\(.*\)"/\1/p' "$SRC/haffop/__init__.py")
-WORK=/tmp/haffop-build
+WORK=$(mktemp -d /tmp/haffop-build.XXXXXX)
 
 echo "==> [$DISTRO] installing build dependencies"
 case $DISTRO in
@@ -30,7 +30,6 @@ fedora)
 esac
 
 echo "==> [$DISTRO] building Haffop $VERSION with PyInstaller"
-rm -rf "$WORK"; mkdir -p "$WORK"
 cp -r "$SRC/haffop" "$WORK/"
 find "$WORK" -name '__pycache__' -type d -prune -exec rm -rf {} +
 printf 'from haffop.app import main\nraise SystemExit(main())\n' > "$WORK/run_haffop.py"
@@ -54,6 +53,8 @@ BIN="$WORK/dist/Haffop"
 
 # Smoke test: the bundled binary must start and answer as its own (root) helper
 test "$(echo '[]' | "$BIN" --haffop-helper)" = "[]"
+"$BIN" --haffop-test-worker '{"component":"cpu","seconds":0.05}' > "$WORK/smoke.json"
+"$WORK/venv/bin/python" -c 'import json,sys; r=json.load(open(sys.argv[1])); assert r["status"] == "completed" and r["app_version"] == sys.argv[2], r' "$WORK/smoke.json" "$VERSION"
 
 ARCH=$(uname -m)
 install -m 0755 "$BIN" "$OUT/Haffop-$DISTRO-$ARCH"
@@ -78,7 +79,7 @@ Section: utils
 Priority: optional
 Architecture: $(dpkg --print-architecture)
 Maintainer: Haffop <haffop@localhost>
-Recommends: pkexec | policykit-1, lm-sensors, pciutils, usbutils, iw, ethtool
+Recommends: pkexec | policykit-1, lm-sensors, pciutils, usbutils, iw, ethtool, iperf3
 Suggests: ryzenadj
 Description: Hardware viewer and performance unlocker (Ubuntu / Debian edition)
  Shows CPU, GPU, RAM, storage, Wi-Fi and live temperatures, and lets you
@@ -95,7 +96,7 @@ Version:        $VERSION
 Release:        1
 Summary:        Hardware viewer and performance unlocker (Fedora edition)
 License:        Unspecified
-Recommends:     polkit lm_sensors pciutils usbutils iw ethtool
+Recommends:     polkit lm_sensors pciutils usbutils iw ethtool iperf3
 # PyInstaller one-file binaries carry their payload after the ELF; stripping would destroy it
 %global debug_package %{nil}
 %global __os_install_post %{nil}

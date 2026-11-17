@@ -35,9 +35,7 @@ def _live_keys(comp: Component, snap: HardwareSnapshot) -> dict[str, str]:
         return {"Temperature": "cpu", "Clock": "cpu_clock", "Power": "cpu_power", "Load": "cpu_load"}
     if comp.kind == "gpu":
         k = comp.key.split(":", 1)[1]
-        gpu = next((g for g in snap.gpus if g.key == k), None)
-        temp = f"gpu:{k}" if gpu is None or not gpu.integrated else "cpu"
-        return {"Temperature": temp, "Clock": f"gpu_clock:{k}", "Power": f"gpu_power:{k}"}
+        return {"Temperature": f"gpu:{k}", "Clock": f"gpu_clock:{k}", "Power": f"gpu_power:{k}"}
     if comp.kind == "ram":
         return {"In use": "ram_used", "Temperature": "ram"}
     return {}
@@ -166,6 +164,7 @@ class ComponentPage(QScrollArea):
         self._update_buttons()
 
     def update_sensors(self, by_key: dict[str, SensorReading]) -> None:
+        self.live.clear_values()
         for row, key in self.keys.items():
             if (r := by_key.get(key)):
                 text, color = _fmt(row, r)
@@ -245,6 +244,7 @@ class OverviewPage(QScrollArea):
 
     def update_sensors(self, by_key: dict[str, SensorReading]) -> None:
         for st, keys in self.lives:
+            st.clear_values()
             for row, key in keys.items():
                 if (r := by_key.get(key)):
                     text, color = _fmt(row, r)

@@ -487,41 +487,40 @@ class LinuxHardware:
         hwmon_keys = self._hwmon_semantic_keys(snap)
         try:
             temps = psutil.sensors_temperatures()
-        except Exception:
-            temps = {}
+        except (OSError, RuntimeError) as exc:
+            raise RuntimeError(f"Linux temperature query failed: {exc}") from exc
+        from haffop.hardware.sensors import select_cpu_temperature, valid_temperature
         # Exact per-device readings first (disks, AMD GPUs, Wi-Fi cards) ...
         covered = set()
         for path, key, group, label, hw_name in hwmon_keys:
             v = read_int(path)
-            if v is not None:
+            if v is not None and valid_temperature(v / 1000):
                 out.append(SensorReading(group, label, v / 1000, "°C", key))
                 if group == "Drive":  # amdgpu keeps its extra junction/memory sensors below
                     covered.add(hw_name)
         # ... then every other hwmon chip psutil knows about.
-        cpu_key_set = False
+        cpu_candidates = []
         wifi_key = f"wifi:{snap.wifi[0].key}" if snap and len(snap.wifi) == 1 else None
         for group, entries in temps.items():
             if group in covered:
                 continue
             pretty = _HWMON_GROUP_NAMES.get(group, "Wi-Fi card" if group.startswith("iwlwifi") else group)
             for i, e in enumerate(entries):
-                if e.current is None or e.current <= 0 or e.current > 150:
+                if not valid_temperature(e.current):
                     continue
                 label = e.label or f"Sensor {i + 1}"
                 key = None
-                if group in ("coretemp", "k10temp", "zenpower") and not cpu_key_set and (
-                        label.startswith(("Package", "Tctl", "Tdie")) or group != "coretemp"):
-                    key, cpu_key_set = "cpu", True
-                elif group in ("spd5118", "jc42"):
+                if group in ("spd5118", "jc42"):
                     key = "ram"
                 elif group.startswith("iwlwifi") and wifi_key and i == 0:
                     key = wifi_key
-                out.append(SensorReading(pretty, label, e.current, "°C", key))
-        if not cpu_key_set:
-            for r in out:
-                if r.group in ("ACPI thermal zone", "CPU package"):
-                    r.key = "cpu"
-                    break
+                reading = SensorReading(pretty, label, e.current, "°C", key)
+                out.append(reading)
+                if group in ("coretemp", "k10temp", "zenpower", "x86_pkg_temp"):
+                    if group == "x86_pkg_temp" and not e.label:
+                        reading.label = "CPU package"
+                    cpu_candidates.append(reading)
+        select_cpu_temperature(cpu_candidates)
         try:
             for group, entries in (psutil.sensors_fans() or {}).items():
                 for i, e in enumerate(entries):
@@ -556,7 +555,7 @@ class LinuxHardware:
                 out.append(SensorReading(grp, "Power", row["power.draw"], "W", f"gpu_power:{key}"))
             if row.get("fan.speed") is not None:
                 out.append(SensorReading(grp, "Fan", row["fan.speed"], "%"))
-        return out
+        return [r for r in out if r.unit != "°C" or valid_temperature(r.value)]
 
     def _hwmon_semantic_keys(self, snap: HardwareSnapshot | None) -> list[tuple[str, str, str, str, str]]:
         """(temp file, semantic key, group, label, hwmon chip name) for devices we can pin exactly."""

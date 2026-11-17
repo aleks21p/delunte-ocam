@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "haffop"
 dynamic = ["version"]
-description = "Hardware viewer and performance unlocker for Windows 11, Debian/Ubuntu and Fedora (PyQt6)"
+description = "Hardware health, benchmarks, testing and tuning for Windows, Debian/Ubuntu and Fedora (PyQt6)"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = ["PyQt6>=6.4", "psutil>=5.9"]
@@ -24,4 +24,4 @@ version = { attr = "haffop.__version__" }
 include = ["haffop*"]
 
 [tool.setuptools.package-data]
-haffop = ["resources/*.svg"]
+haffop = ["resources/*.svg", "resources/references/*.csv", "resources/references/*.txt"]

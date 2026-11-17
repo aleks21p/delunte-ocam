@@ -1,0 +1,21 @@
+Offline historical reference tables
+==================================
+Source: "Openbenchmarking - Phoronix test suite dataset"
+Creators credited by the source: X; Michael Larabel (Phoronix)
+Published: 2021-09-29
+DOI: https://doi.org/10.5281/zenodo.5535465
+License: Creative Commons Attribution 4.0 International (CC BY 4.0)
+License URL: https://creativecommons.org/licenses/by/4.0/
+Dataset metadata: https://zenodo.org/api/records/5535465
+Archive: https://zenodo.org/api/records/5535465/files/data.zip/content
+Archive MD5 (as published): 1dac7a74230402284bbddc4db30d903e
+
+The five CSV files are unchanged extracts from data/suite in that archive.
+Haffop displays a subset of columns. No endorsement by the creators is implied.
+The source aggregates public OpenBenchmarking.org results; these are historical
+community measurements, not manufacturer specifications or health guarantees.
+The CSVs omit exact workload versions, options, units and system configurations.
+Consequently Haffop does not compare these numbers to its own microbenchmarks,
+infer missing units, or award "meets factory standard" ratings from them.
+Coverage is limited to hardware present in the 2021 snapshot. Wi-Fi is not covered.
+All browsing works offline. Haffop does not upload hardware data or scores.

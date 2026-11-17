@@ -22,7 +22,7 @@ Architecture: all
 Installed-Size: $SIZE
 Depends: python3 (>= 3.10), python3-pyqt6, python3-psutil, pciutils, usbutils, iw, util-linux, udev, pkexec | policykit-1
 Recommends: lm-sensors, dmidecode
-Suggests: python3-pynvml, nvidia-smi
+Suggests: python3-pynvml, nvidia-smi, iperf3, ocl-icd-libopencl1
 Maintainer: Haffop developers <haffop@users.noreply.github.com>
 Homepage: https://github.com/aleks21p/delunte-ocam
 Description: Hardware viewer and performance unlocker (PyQt6)
