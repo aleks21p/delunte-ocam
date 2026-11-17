@@ -1,0 +1,4 @@
+PyQt6>=6.4
+psutil>=5.9
+# Optional: NVIDIA core/memory clock offsets (overclocking) via NVML
+# nvidia-ml-py>=12.535

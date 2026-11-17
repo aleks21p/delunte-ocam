@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Haffop
+GenericName=Hardware Monitor & Performance Unlocker
+Comment=View your hardware, live temperatures, and overclock / unlock CPU, GPU and laptop power limits
+Exec=haffop
+Icon=haffop
+Terminal=false
+Categories=System;Monitor;HardwareSettings;Qt;
+Keywords=overclock;hardware;temperature;cpu;gpu;ram;sensors;laptop;performance;
+StartupWMClass=haffop

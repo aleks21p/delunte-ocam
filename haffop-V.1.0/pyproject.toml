@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "haffop"
+dynamic = ["version"]
+description = "Hardware viewer and performance unlocker for Windows 11, Debian/Ubuntu and Fedora (PyQt6)"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["PyQt6>=6.4", "psutil>=5.9"]
+
+[project.optional-dependencies]
+nvidia = ["nvidia-ml-py>=12.535"]
+test = ["pytest"]
+
+[project.gui-scripts]
+haffop = "haffop.app:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "haffop.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["haffop*"]
+
+[tool.setuptools.package-data]
+haffop = ["resources/*.svg"]
